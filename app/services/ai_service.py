@@ -13,7 +13,12 @@ MODEL_BY_MODE = {
     "guia": "gpt-4o-mini",
 }
 
-_response_cache: dict[str, str] = {}
+from cachetools import TTLCache
+
+# Caché de respuestas con límite de tamaño y TTL de 1 hora.
+# max_size=512 evita crecimiento ilimitado en memoria.
+# ttl=3600 garantiza que las respuestas no se sirven indefinidamente si el contenido cambia.
+_response_cache: TTLCache = TTLCache(maxsize=512, ttl=3600)
 
 MODE_INPUT_BUDGET = {
     "ensayo": 9000,
@@ -129,8 +134,6 @@ async def run_ai_with_meta(messages: list[dict], system_prompt: str, mode: str) 
             max_tokens=metadata["max_response_tokens"],
         )
         _response_cache[key] = response
-        if len(_response_cache) > 500:
-            _response_cache.pop(next(iter(_response_cache)))
         metadata["cached"] = False
         metadata["completion_tokens_estimate"] = _estimate_tokens(response)
         metadata["total_tokens_estimate"] = metadata["prompt_tokens_estimate"] + metadata["completion_tokens_estimate"]

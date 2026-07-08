@@ -1,4 +1,5 @@
 import os
+import secrets
 from fastapi import Header, HTTPException
 
 
@@ -9,9 +10,17 @@ def _expected_api_token() -> str:
     return token
 
 
-def require_api_token(x_api_token: str | None = Header(default=None)) -> None:
+def require_api_token(authorization: str | None = Header(default=None)) -> None:
+    """
+    Valida el token de API enviado como 'Authorization: Bearer <token>'.
+    Usa secrets.compare_digest para evitar timing attacks.
+    """
     expected = _expected_api_token()
-    if x_api_token != expected:
+    token = None
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization[7:].strip()
+
+    if not token or not secrets.compare_digest(token, expected):
         raise HTTPException(status_code=401, detail="Token de API inválido.")
 
 

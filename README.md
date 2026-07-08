@@ -37,11 +37,14 @@ Sysiphus es una aplicación web que combina un editor de ensayos con un asistent
 | Capa | Tecnología |
 |------|-----------|
 | Backend | Python 3.11+ · FastAPI · Uvicorn |
-| ORM / DB | SQLAlchemy · SQLite |
+| ORM / DB | SQLAlchemy · SQLite (configurable vía `DATABASE_URL`) |
+| Migraciones | Alembic (versionadas, con soporte `render_as_batch` para SQLite) |
 | IA | OpenAI Chat Completions (`AsyncOpenAI`) |
 | Validación | Pydantic v2 |
 | Frontend | HTML · CSS · JavaScript vanilla (Jinja2) |
-| Auth | API Token (`SYSIPHUS_API_TOKEN`) + `X-User-Id` header |
+| Auth | `Authorization: Bearer <token>` (`SYSIPHUS_API_TOKEN`) + `X-User-Id` header |
+| Caché | `cachetools.TTLCache` — tamaño máximo 512, TTL 1 hora |
+| Rate limit | Ventana deslizante in-memory, thread-safe, cap de 2000 buckets |
 
 ---
 
@@ -76,11 +79,20 @@ cp .env.example .env
 Edita `.env` y rellena los valores:
 
 ```env
-OPENAI_API_KEY=sk-...          # Tu clave de API de OpenAI
-SYSIPHUS_API_TOKEN=dev-token   # Token que usan los clientes para autenticarse
+OPENAI_API_KEY=sk-...                        # Tu clave de API de OpenAI
+SYSIPHUS_API_TOKEN=dev-token                 # Token que usan los clientes
+DATABASE_URL=sqlite:///./sysiphus.db         # Opcional: cambiar a PostgreSQL en producción
 ```
 
-### 4. Arrancar el servidor
+### 4. Aplicar migraciones de base de datos
+
+```bash
+alembic upgrade head
+```
+
+> ⚠️ **Importante:** las migraciones deben aplicarse antes del primer arranque y cada vez que se añadan cambios de esquema.
+
+### 5. Arrancar el servidor
 
 ```bash
 python main.py
@@ -101,9 +113,9 @@ Abre [http://127.0.0.1:8000](http://127.0.0.1:8000) en tu navegador.
 Todas las llamadas a la API requieren dos cabeceras:
 
 | Cabecera | Descripción |
-|----------|-------------|
-| `Authorization: ****** | Valor de `SYSIPHUS_API_TOKEN` |
-| `X-User-Id: <user_id>` | Identificador del usuario (cadena arbitraria) |
+|----------|--------------|
+| `Authorization: Bearer <token>` | Valor de `SYSIPHUS_API_TOKEN` — validado con `secrets.compare_digest` |
+| `X-User-Id: <user_id>` | Identificador del usuario (cadena arbitraria, mínimo 3 caracteres) |
 
 ---
 
@@ -185,17 +197,21 @@ Sisyphus/
 ├── main.py                      # Punto de entrada FastAPI
 ├── requirements.txt
 ├── .env.example
+├── alembic.ini                  # Configuración de Alembic
+├── alembic/
+│   ├── env.py                   # Carga modelos + DATABASE_URL desde .env
+│   └── versions/                # Migraciones versionadas
 ├── app/
 │   ├── routers.py               # Endpoints REST
 │   ├── models.py                # Modelos SQLAlchemy
 │   ├── schemas.py               # Schemas Pydantic
-│   ├── database.py              # Configuración DB + migraciones
-│   ├── auth.py                  # Autenticación por token
+│   ├── database.py              # Configuración DB (DATABASE_URL configurable)
+│   ├── auth.py                  # Auth: Bearer token + secrets.compare_digest
 │   ├── prompts.py               # System prompts por modo
-│   ├── rate_limit.py            # Rate limiter in-memory
+│   ├── rate_limit.py            # Rate limiter thread-safe con cap de buckets
 │   ├── ai_logic.py              # Lógica auxiliar IA
 │   └── services/
-│       ├── ai_service.py        # run_ai_with_meta, fallback, caché
+│       ├── ai_service.py        # run_ai_with_meta, fallback, TTLCache
 │       ├── context_service.py   # Chunking, memoria, resumen, RAG
 │       ├── project_service.py   # CRUD de proyectos
 │       └── guided_service.py    # Flujo del modo guía
@@ -219,8 +235,15 @@ pytest tests/
 
 ## 📝 Notas de desarrollo
 
-- Las migraciones de esquema se gestionan con `ensure_sqlite_schema()` (sin Alembic).
-- El rate limiting y la caché de respuestas son **in-memory** y no se comparten entre procesos.
+- **Migraciones:** se gestionan con Alembic. Ante cualquier cambio en `models.py` ejecutar:
+  ```bash
+  alembic revision --autogenerate -m "descripcion"
+  alembic upgrade head
+  ```
+- **`render_as_batch=True`** está habilitado en `alembic/env.py` — necesario para que SQLite soporte `ALTER TABLE` correctamente.
+- **`DATABASE_URL`** se lee del entorno; por defecto apunta a SQLite local. Para usar PostgreSQL basta cambiar la variable en `.env`.
+- **Auth:** el frontend envía `Authorization: Bearer <token>`. El backend valida con `secrets.compare_digest` (timing-safe). No usar `==` directo.
+- **Rate limit y caché** son in-memory y no se comparten entre procesos. Si se usan múltiples workers de Uvicorn en el futuro, migrar a Redis.
 - Los modos y fases del frontend y el backend deben mantenerse sincronizados (`ensayo`, `mejora`, `critica`, `estilo`, `guia`; fases: `idea`, `estructura`, y nombres de párrafo).
 - El dominio / UX está en español; el código fuente e infraestructura en inglés.
 

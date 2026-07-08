@@ -24,8 +24,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const modalOverlay = document.getElementById("modal-overlay");
     const newProjectModal = document.getElementById("new-project-modal");
     const newProjectTitleInput = document.getElementById("new-project-title");
+    const newProjectGoalInput = document.getElementById("new-project-goal");
+    const newProjectInitialModeSelect = document.getElementById("new-project-initial-mode");
+    const newProjectTemplateSelect = document.getElementById("new-project-template");
+    const newProjectCounter = document.getElementById("new-project-counter");
+    const newProjectError = document.getElementById("new-project-error");
     const modalCancelBtn = document.getElementById("modal-cancel-btn");
     const modalCreateBtn = document.getElementById("modal-create-btn");
+    const modalFocusableSelector = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex='-1'])";
+    const projectOnboarding = document.getElementById("project-onboarding");
+    const projectOnboardingText = document.getElementById("project-onboarding-text");
+    const onboardingWriteThesisBtn = document.getElementById("onboarding-write-thesis");
+    const onboardingGuidedModeBtn = document.getElementById("onboarding-guided-mode");
+    const onboardingPasteDraftBtn = document.getElementById("onboarding-paste-draft");
     const GUIDED_STAGES = ["idea", "estructura", "introduccion", "desarrollo", "contraargumento", "conclusion", "completado"];
     const API_TOKEN_KEY = "sysiphus_api_token";
     const USER_ID_KEY = "sysiphus_user_id";
@@ -38,6 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let canAdvanceStage = false;
     let historyOffset = 0;
     const historyLimit = 20;
+    let lastFocusedElement = null;
 
     function ensureClientIdentity() {
         if (!localStorage.getItem(API_TOKEN_KEY)) {
@@ -51,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function getHeaders() {
         return {
             "Content-Type": "application/json",
-            "X-Api-Token": localStorage.getItem(API_TOKEN_KEY) || "",
+            "Authorization": "Bearer " + (localStorage.getItem(API_TOKEN_KEY) || ""),
             "X-User-Id": localStorage.getItem(USER_ID_KEY) || "",
         };
     }
@@ -87,6 +99,152 @@ document.addEventListener("DOMContentLoaded", () => {
     function closeModal() {
         modalOverlay.classList.add("hidden");
         newProjectModal.classList.add("hidden");
+        newProjectTitleInput.removeAttribute("aria-invalid");
+        if (lastFocusedElement && typeof lastFocusedElement.focus === "function") {
+            lastFocusedElement.focus();
+        }
+    }
+
+    function showProjectTitleError(message) {
+        if (!message) {
+            newProjectError.textContent = "";
+            newProjectError.classList.add("hidden");
+            newProjectTitleInput.setAttribute("aria-invalid", "false");
+            return;
+        }
+        newProjectError.textContent = message;
+        newProjectError.classList.remove("hidden");
+        newProjectTitleInput.setAttribute("aria-invalid", "true");
+    }
+
+    function validateProjectTitle() {
+        const rawTitle = newProjectTitleInput.value;
+        const trimmedTitle = rawTitle.trim();
+        const count = rawTitle.length;
+        newProjectCounter.textContent = `${count}/120`;
+
+        if (count === 0 || trimmedTitle.length === 0) {
+            modalCreateBtn.disabled = true;
+            showProjectTitleError("El título es obligatorio.");
+            return false;
+        }
+        if (count > 120) {
+            modalCreateBtn.disabled = true;
+            showProjectTitleError("El título no puede superar 120 caracteres.");
+            return false;
+        }
+
+        modalCreateBtn.disabled = false;
+        showProjectTitleError("");
+        return true;
+    }
+
+    function hideProjectOnboarding() {
+        projectOnboarding.classList.add("hidden");
+    }
+
+    function showProjectOnboarding(projectTitle) {
+        projectOnboardingText.textContent = `Proyecto "${projectTitle}" creado. Elige un primer paso:`;
+        projectOnboarding.classList.remove("hidden");
+    }
+
+    function getTemplateSetup(templateId, title, goal) {
+        const goalLine = goal ? `\nObjetivo del proyecto: ${goal}\n` : "";
+        if (templateId === "exploracion_socratica") {
+            return {
+                draft: `Pregunta central: ¿Qué idea quiero examinar a fondo?${goalLine}\nHipótesis inicial:\n- \n\nSupuestos que debo cuestionar:\n1. \n2. \n\nPosibles objeciones:\n- `,
+                instruction: "Ayúdame a profundizar esta pregunta con una secuencia socrática en 5 pasos."
+            };
+        }
+        if (templateId === "critica_texto") {
+            return {
+                draft: `Texto o tesis a criticar: ${title}${goalLine}\nResumen objetivo del texto:\n\nFortalezas argumentales:\n1. \n\nDebilidades argumentales:\n1. \n\nPropuesta de mejora:\n`,
+                instruction: "Genera una crítica estructurada con tesis, evidencia, contraargumento y mejora concreta."
+            };
+        }
+        if (templateId === "ensayo_argumentativo") {
+            return {
+                draft: `Tesis central:${goal ? ` ${goal}` : ""}\n\nArgumento 1:\n\nArgumento 2:\n\nContraargumento:\n\nConclusión provisional:\n`,
+                instruction: "Ayúdame a convertir este esquema en un ensayo sólido y coherente."
+            };
+        }
+        return {
+            draft: goal ? `Objetivo del proyecto: ${goal}\n\n` : "",
+            instruction: ""
+        };
+    }
+
+    function openNewProjectModal() {
+        lastFocusedElement = document.activeElement;
+        modalOverlay.classList.remove("hidden");
+        newProjectModal.classList.remove("hidden");
+        newProjectTitleInput.value = "";
+        newProjectGoalInput.value = "";
+        newProjectInitialModeSelect.value = "ensayo";
+        newProjectTemplateSelect.value = "ensayo_argumentativo";
+        newProjectCounter.textContent = "0/120";
+        showProjectTitleError("El título es obligatorio.");
+        modalCreateBtn.disabled = true;
+        newProjectTitleInput.focus();
+    }
+
+    function trapModalFocus(event) {
+        if (newProjectModal.classList.contains("hidden")) return;
+        if (event.key === "Escape") {
+            event.preventDefault();
+            closeModal();
+            return;
+        }
+        if (event.key !== "Tab") return;
+
+        const focusables = newProjectModal.querySelectorAll(modalFocusableSelector);
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
+
+    async function handleCreateProject() {
+        if (!validateProjectTitle()) return;
+        const title = newProjectTitleInput.value.trim();
+        const goal = newProjectGoalInput.value.trim();
+        const initialMode = newProjectInitialModeSelect.value;
+        const templateId = newProjectTemplateSelect.value;
+        const templateSetup = getTemplateSetup(templateId, title, goal);
+        const originalText = modalCreateBtn.textContent;
+        modalCreateBtn.disabled = true;
+        modalCreateBtn.textContent = "Creando...";
+        try {
+            const res = await apiFetch("/api/projects", {
+                method: "POST",
+                body: JSON.stringify({ title }),
+            });
+            const project = await res.json();
+            await loadProjects();
+            await selectProject(project.id);
+            setModeVisual(initialMode);
+            mainEditor.value = templateSetup.draft;
+            oracleInstruction.value = templateSetup.instruction;
+            if (templateSetup.draft) {
+                await saveActiveDocument();
+            }
+            renderEmptyResult("Proyecto listo. Usa un paso sugerido o escribe y presiona Ctrl+Enter.");
+            showProjectOnboarding(project.title);
+            closeModal();
+            showToast("Proyecto creado.");
+        } catch (e) {
+            showToast(`Error creando proyecto: ${e.message}`, "error");
+        } finally {
+            modalCreateBtn.textContent = originalText;
+            validateProjectTitle();
+        }
     }
 
     function setModeVisual(modeId) {
@@ -108,7 +266,9 @@ document.addEventListener("DOMContentLoaded", () => {
             mainEditor.placeholder = `Modo Guía (${stageLabel})...\nRedacta aquí tu borrador para esta fase.`;
         } else {
             guidedProgress.classList.add("hidden");
-            mainEditor.placeholder = "Plasma tu idea, premisa o borrador aquí. Selecciona o crea un proyecto para mantener tus reflexiones persistentes...";
+            mainEditor.placeholder = activeProjectId
+                ? "Empieza con tu tesis o pega un borrador. Después usa Ctrl+Enter para consultarlo con el Oráculo."
+                : "Plasma tu idea, premisa o borrador aquí. Selecciona o crea un proyecto para mantener tus reflexiones persistentes...";
         }
     }
 
@@ -185,7 +345,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 accumulatedContent = "";
             }
             canAdvanceStage = false;
-            renderEmptyResult("Proyecto seleccionado. Puedes escribir ahora.");
+            hideProjectOnboarding();
+            renderEmptyResult("Proyecto seleccionado. Escribe tu tesis o una instrucción y presiona Ctrl+Enter.");
             await loadInteractionHistory(true);
             await loadProjects();
             saveStatus.textContent = "";
@@ -203,7 +364,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 activeProjectId = null;
                 currentProjectTitle.textContent = "Documento efímero (Sin proyecto)";
                 mainEditor.value = "";
-                renderEmptyResult("Proyecto eliminado.");
+                hideProjectOnboarding();
+                renderEmptyResult("Proyecto eliminado. Crea uno nuevo para conservar contexto e historial.");
                 saveDocBtn.classList.add("hidden");
                 historyPanel.classList.add("hidden");
                 saveStatus.textContent = "";
@@ -348,33 +510,38 @@ document.addEventListener("DOMContentLoaded", () => {
         typingTimer = setTimeout(saveActiveDocument, 2000);
     });
 
-    newProjectBtn.addEventListener("click", () => {
-        modalOverlay.classList.remove("hidden");
-        newProjectModal.classList.remove("hidden");
-        newProjectTitleInput.value = "";
-        newProjectTitleInput.focus();
-    });
+    newProjectBtn.addEventListener("click", openNewProjectModal);
     modalCancelBtn.addEventListener("click", closeModal);
     modalOverlay.addEventListener("click", closeModal);
+    onboardingWriteThesisBtn.addEventListener("click", () => {
+        if (!mainEditor.value.trim()) {
+            mainEditor.value = "Tesis inicial: ";
+        }
+        mainEditor.focus();
+        hideProjectOnboarding();
+    });
+    onboardingGuidedModeBtn.addEventListener("click", () => {
+        if (!activeProjectId) return;
+        setModeVisual("guia");
+        if (!oracleInstruction.value.trim()) {
+            oracleInstruction.value = "Guíame para construir la mejor tesis de este proyecto.";
+        }
+        oracleInstruction.focus();
+        hideProjectOnboarding();
+    });
+    onboardingPasteDraftBtn.addEventListener("click", () => {
+        setModeVisual("mejora");
+        mainEditor.focus();
+        hideProjectOnboarding();
+    });
+    newProjectModal.addEventListener("keydown", trapModalFocus);
+    newProjectTitleInput.addEventListener("input", validateProjectTitle);
     newProjectTitleInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") modalCreateBtn.click();
+        if (e.key === "Enter") {
+            e.preventDefault();
+            handleCreateProject();
+        }
         if (e.key === "Escape") closeModal();
     });
-    modalCreateBtn.addEventListener("click", async () => {
-        const title = newProjectTitleInput.value.trim();
-        if (!title) return;
-        try {
-            const res = await apiFetch("/api/projects", {
-                method: "POST",
-                body: JSON.stringify({ title }),
-            });
-            const project = await res.json();
-            await loadProjects();
-            await selectProject(project.id);
-            closeModal();
-            showToast("Proyecto creado.");
-        } catch (e) {
-            showToast(`Error creando proyecto: ${e.message}`, "error");
-        }
-    });
+    modalCreateBtn.addEventListener("click", handleCreateProject);
 });
