@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sysiphus.io - Pensamiento Analítico</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- Google Fonts: Inter para interfaces, Merriweather para el texto de ensayo -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Panel Izquierdo / Controles centrales -->
+        <aside class="sidebar">
+            <h1 class="logo">Sysiphus<span>.io</span></h1>
+            <p class="subtitle">Pensamiento y Crítica</p>
+            
+            <div class="projects-panel">
+                <div class="projects-header">
+                    <h3>PROYECTOS</h3>
+                    <button id="new-project-btn" class="icon-btn" title="Nuevo Proyecto">+</button>
+                </div>
+                <div class="projects-list" id="projects-list">
+                    <!-- Lista de proyectos injectada JS -->
+                </div>
+            </div>
+
+            <div class="modes-panel">
+                <h3>MODO DE OPERACIÓN</h3>
+                <div class="mode-buttons">
+                    <button class="mode-btn active" data-mode="ensayo">📝 Ensayo</button>
+                    <button class="mode-btn" data-mode="guia">🌟 Modo Guía</button>
+                    <button class="mode-btn" data-mode="mejora">💫 Mejora de Texto</button>
+                    <button class="mode-btn" data-mode="critica">🔍 Crítica</button>
+                    <button class="mode-btn" data-mode="estilo">🎭 Estilo</button>
+                </div>
+                
+                <div id="style-selector-container" class="hidden">
+                    <label for="style-select">Corriente o Autor:</label>
+                    <select id="style-select">
+                        <option value="Existencialista">Existencialista</option>
+                        <option value="Estoico">Estoico</option>
+                        <option value="Académico formal">Académico formal</option>
+                        <option value="Narrativo">Narrativo</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="process-btn" class="process-btn">Consultar Oráculo ➔</button>
+            <div id="loading" class="hidden"><div class="spinner"></div> Pensando...</div>
+        </aside>
+
+        <!-- Área Principal de Edición -->
+        <main class="editor-area">
+            <div class="editor-header">
+                <span id="current-project-title">Documento efímero (Sin proyecto)</span>
+                
+                <div id="guided-progress" class="hidden">
+                    <span id="guided-stage-label" class="stage-label">Fase: Idea</span>
+                    <button id="guided-next-btn" class="save-btn" style="margin-right: 1rem;">Avanzar Fase ➡</button>
+                </div>
+
+                <div class="header-actions">
+                    <label class="editor-control-label" for="font-size-control">Texto</label>
+                    <input id="font-size-control" type="range" min="18" max="28" value="22" />
+                    <label class="editor-control-label" for="line-height-control">Interlineado</label>
+                    <input id="line-height-control" type="range" min="1.4" max="2.2" step="0.1" value="1.8" />
+                    <span id="save-status"></span>
+                    <button id="save-doc-btn" class="save-btn hidden">💾 Guardar Manual</button>
+                </div>
+            </div>
+            <div class="oracle-input-wrap">
+                <label for="oracle-instruction">Instrucción para el Oráculo</label>
+                <input id="oracle-instruction" type="text" placeholder="Ej. Critica la estructura argumental y sugiere mejoras concretas." />
+            </div>
+            <textarea id="main-editor" placeholder="Plasma tu idea, premisa o borrador aquí. Selecciona o crea un proyecto para mantener tus reflexiones persistentes..."></textarea>
+        </main>
+
+        <!-- Panel Derecho / Resultados IA -->
+        <aside class="results-panel">
+            <h2>El Oráculo</h2>
+            <div class="history-panel hidden" id="history-panel">
+                <div class="history-header">
+                    <span>Historial</span>
+                    <button id="history-more-btn" class="save-btn">Más</button>
+                </div>
+                <div id="history-list"></div>
+            </div>
+            <div id="results-content" class="results-content">
+                <div class="empty-state">Tus resultados, estructuras y observaciones analíticas aparecerán aquí. Si estás en un proyecto activo, este historial quedará guardado.</div>
+            </div>
+        </aside>
+    </div>
+    
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay hidden"></div>
+    <div id="new-project-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Nuevo Proyecto Filosófico</h3>
+            <p>Ingresa el título para tu nueva reflexión.</p>
+            <input type="text" id="new-project-title" placeholder="Ej. La dicotomía del control..." autocomplete="off">
+            <div class="modal-actions">
+                <button id="modal-cancel-btn" class="modal-btn cancel">Cancelar</button>
+                <button id="modal-create-btn" class="modal-btn create">Crear</button>
+            </div>
+        </div>
+    </div>
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Librería externa para parsear MD a HTML rapido (marckdown-it) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
