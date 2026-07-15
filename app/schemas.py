@@ -58,7 +58,7 @@ class EssayMemoryResponse(BaseModel):
     summary_error: str = ""
     rag_status: str = "idle"
     rag_error: str = ""
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -75,7 +75,7 @@ class InteractionResponse(InteractionBase):
 class DocumentResponse(DocumentBase):
     id: int
     project_id: int
-    updated_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

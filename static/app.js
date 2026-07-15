@@ -13,14 +13,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const toastContainer = document.getElementById("toast-container");
     const fontSizeControl = document.getElementById("font-size-control");
     const lineHeightControl = document.getElementById("line-height-control");
+    const settingsBtn = document.getElementById("settings-btn");
+    const settingsMenu = document.getElementById("settings-menu");
     const projectsList = document.getElementById("projects-list");
     const newProjectBtn = document.getElementById("new-project-btn");
     const saveDocBtn = document.getElementById("save-doc-btn");
     const saveStatus = document.getElementById("save-status");
     const currentProjectTitle = document.getElementById("current-project-title");
     const guidedProgress = document.getElementById("guided-progress");
-    const guidedStageLabel = document.getElementById("guided-stage-label");
+    const guidedPhaseBar = document.getElementById("guided-phase-bar");
     const guidedNextBtn = document.getElementById("guided-next-btn");
+    const guidedNextTooltip = document.getElementById("guided-next-tooltip");
     const modalOverlay = document.getElementById("modal-overlay");
     const newProjectModal = document.getElementById("new-project-modal");
     const newProjectTitleInput = document.getElementById("new-project-title");
@@ -37,9 +40,103 @@ document.addEventListener("DOMContentLoaded", () => {
     const onboardingWriteThesisBtn = document.getElementById("onboarding-write-thesis");
     const onboardingGuidedModeBtn = document.getElementById("onboarding-guided-mode");
     const onboardingPasteDraftBtn = document.getElementById("onboarding-paste-draft");
+    const phaseHintPanel = document.getElementById("phase-hint-panel");
+    const phaseHintName = document.getElementById("phase-hint-name");
+    const phaseHintDesc = document.getElementById("phase-hint-desc");
+    const phaseHintReq = document.getElementById("phase-hint-req");
+    const phaseExamplesList = document.getElementById("phase-examples-list");
+    const tutorialOverlay = document.getElementById("tutorial-overlay");
+    const tutorialNextBtn = document.getElementById("tutorial-next-btn");
+    const tutorialSkipBtn = document.getElementById("tutorial-skip-btn");
+    const helpBtn = document.getElementById("help-btn");
+    const guidedNoProjectOverlay = document.getElementById("guided-no-project-overlay");
+    const guidedNoProjectModal = document.getElementById("guided-no-project-modal");
+    const gnpCancelBtn = document.getElementById("gnp-cancel-btn");
+    const gnpCreateBtn = document.getElementById("gnp-create-btn");
+
     const GUIDED_STAGES = ["idea", "estructura", "introduccion", "desarrollo", "contraargumento", "conclusion", "completado"];
+    const STAGE_LABELS = {
+        idea: "Idea",
+        estructura: "Estructura",
+        introduccion: "Intro",
+        desarrollo: "Desarrollo",
+        contraargumento: "Contra",
+        conclusion: "Conclusión",
+        completado: "✓",
+    };
     const API_TOKEN_KEY = "sysiphus_api_token";
     const USER_ID_KEY = "sysiphus_user_id";
+    const TUTORIAL_SEEN_KEY = "sysiphus_tutorial_seen";
+
+    // ── Phase hints data ──────────────────────────────────────────────────────
+    const PHASE_HINTS = {
+        idea: {
+            name: "Fase: Idea",
+            desc: "Explora y define la idea central de tu ensayo. No necesitas tenerla clara del todo — el Oráculo te ayudará a afinarla.",
+            req: "⏳ Escribe tu idea y consulta al Oráculo para poder avanzar.",
+            examples: [
+                "Quiero escribir sobre si el libre albedrío existe realmente.",
+                "Mi tesis es que la tecnología no nos hace más libres, sino más dependientes.",
+                "Explórame la idea de que el sufrimiento tiene valor filosófico.",
+            ],
+        },
+        estructura: {
+            name: "Fase: Estructura",
+            desc: "Define el esqueleto argumental de tu ensayo. ¿Qué argumentos vas a usar? ¿Cómo se conectan? El Oráculo te propondrá un esquema.",
+            req: "⏳ Escribe un borrador de estructura y consulta al Oráculo.",
+            examples: [
+                "Ayúdame a crear un esquema con tesis, 3 argumentos y un contraargumento.",
+                "¿Qué orden lógico deberían tener mis ideas para ser más convincentes?",
+                "Propón una estructura de 5 partes para este argumento filosófico.",
+            ],
+        },
+        introduccion: {
+            name: "Fase: Introducción",
+            desc: "Redacta la introducción de tu ensayo. Debe enganchar al lector, presentar el tema y enunciar tu tesis central.",
+            req: "⏳ Escribe al menos 80 caracteres y consulta al Oráculo.",
+            examples: [
+                "Ayúdame a escribir una introducción que enganche desde la primera frase.",
+                "Critica mi borrador de introducción y sugiere mejoras concretas.",
+                "¿Mi tesis está suficientemente clara en esta introducción?",
+            ],
+        },
+        desarrollo: {
+            name: "Fase: Desarrollo",
+            desc: "Desarrolla los argumentos principales de tu ensayo. Es el cuerpo del texto — aquí se construye tu razonamiento con evidencia y ejemplos.",
+            req: "⏳ Escribe al menos 80 caracteres y consulta al Oráculo.",
+            examples: [
+                "Desarrolla este argumento con mayor profundidad y añade un ejemplo concreto.",
+                "¿Falta algún paso lógico entre este argumento y el siguiente?",
+                "Refuerza esta sección con una cita o referencia filosófica relevante.",
+            ],
+        },
+        contraargumento: {
+            name: "Fase: Contraargumento",
+            desc: "Presenta la objeción más fuerte a tu tesis y respóndela. Un buen ensayo reconoce las posiciones contrarias y las refuta.",
+            req: "⏳ Escribe al menos 80 caracteres y consulta al Oráculo.",
+            examples: [
+                "¿Cuál es la objeción más fuerte a mi argumento? Ayúdame a responderla.",
+                "Genera el mejor contraargumento posible contra mi tesis.",
+                "¿Mi respuesta al contraargumento es convincente o deja flancos abiertos?",
+            ],
+        },
+        conclusion: {
+            name: "Fase: Conclusión",
+            desc: "Cierra el ensayo sintetizando tus argumentos y reafirmando tu tesis. Una buena conclusión deja al lector con algo en qué pensar.",
+            req: "⏳ Escribe al menos 80 caracteres y consulta al Oráculo.",
+            examples: [
+                "Escribe una conclusión que sintetice el argumento sin repetir literalmente lo dicho.",
+                "¿Mi conclusión deja una pregunta abierta o un giro interesante?",
+                "Propón un cierre con una cita o imagen final que refuerce la tesis.",
+            ],
+        },
+        completado: {
+            name: "Ensayo completado ✓",
+            desc: "Tu ensayo está completo. El texto acumulado ha sido guardado en el lienzo. Puedes seguir refinándolo con los modos Mejora, Crítica o Estilo.",
+            req: "",
+            examples: [],
+        },
+    };
 
     let currentMode = "ensayo";
     let activeProjectId = null;
@@ -50,6 +147,88 @@ document.addEventListener("DOMContentLoaded", () => {
     let historyOffset = 0;
     const historyLimit = 20;
     let lastFocusedElement = null;
+    let tutorialCurrentSlide = 0;
+    const TUTORIAL_TOTAL_SLIDES = 3;
+
+    // ═══════════════════════════════════════════════════════════════════
+    // TUTORIAL DE BIENVENIDA
+    // ═══════════════════════════════════════════════════════════════════
+
+    function showWelcomeTutorial() {
+        tutorialCurrentSlide = 0;
+        renderTutorialSlide(0);
+        tutorialOverlay.classList.remove("hidden");
+    }
+
+    function closeWelcomeTutorial() {
+        tutorialOverlay.classList.add("hidden");
+        localStorage.setItem(TUTORIAL_SEEN_KEY, "1");
+    }
+
+    function renderTutorialSlide(index) {
+        const slides = tutorialOverlay.querySelectorAll(".tutorial-slide");
+        const dots = tutorialOverlay.querySelectorAll(".tutorial-dot");
+        slides.forEach((s, i) => s.classList.toggle("active", i === index));
+        dots.forEach((d, i) => d.classList.toggle("active", i === index));
+        const isLast = index === TUTORIAL_TOTAL_SLIDES - 1;
+        tutorialNextBtn.textContent = isLast ? "¡Empezar! 🚀" : "Siguiente →";
+    }
+
+    tutorialNextBtn.addEventListener("click", () => {
+        if (tutorialCurrentSlide < TUTORIAL_TOTAL_SLIDES - 1) {
+            tutorialCurrentSlide++;
+            renderTutorialSlide(tutorialCurrentSlide);
+        } else {
+            closeWelcomeTutorial();
+        }
+    });
+
+    tutorialSkipBtn.addEventListener("click", closeWelcomeTutorial);
+
+    helpBtn.addEventListener("click", () => {
+        tutorialCurrentSlide = 0;
+        renderTutorialSlide(0);
+        tutorialOverlay.classList.remove("hidden");
+    });
+
+    function showGuidedNoProjectModal() {
+        guidedNoProjectOverlay.classList.remove("hidden");
+        guidedNoProjectModal.classList.remove("hidden");
+        gnpCreateBtn.focus();
+    }
+
+    function closeGuidedNoProjectModal() {
+        guidedNoProjectOverlay.classList.add("hidden");
+        guidedNoProjectModal.classList.add("hidden");
+    }
+
+    gnpCancelBtn.addEventListener("click", closeGuidedNoProjectModal);
+    guidedNoProjectOverlay.addEventListener("click", closeGuidedNoProjectModal);
+    gnpCreateBtn.addEventListener("click", () => {
+        closeGuidedNoProjectModal();
+        // Pre-select Modo Guia in the project creation modal
+        openNewProjectModal();
+        newProjectInitialModeSelect.value = "guia";
+    });
+
+    // Toggle del menú de ajustes
+    if (settingsBtn && settingsMenu) {
+        settingsBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            settingsMenu.classList.toggle("hidden");
+        });
+        
+        // Cerrar menú al hacer clic fuera
+        document.addEventListener("click", (e) => {
+            if (!settingsMenu.contains(e.target) && !settingsBtn.contains(e.target)) {
+                settingsMenu.classList.add("hidden");
+            }
+        });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // AUTH / IDENTITY
+    // ═══════════════════════════════════════════════════════════════════
 
     function ensureClientIdentity() {
         if (!localStorage.getItem(API_TOKEN_KEY)) {
@@ -77,6 +256,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         return response;
     }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // UI HELPERS
+    // ═══════════════════════════════════════════════════════════════════
 
     function showToast(message, type = "info") {
         const toast = document.createElement("div");
@@ -148,6 +331,113 @@ document.addEventListener("DOMContentLoaded", () => {
         projectOnboarding.classList.remove("hidden");
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // BARRA DE PROGRESO DE FASES
+    // ═══════════════════════════════════════════════════════════════════
+
+    function renderGuidedProgressBar(currentStage) {
+        const currentIdx = GUIDED_STAGES.indexOf(currentStage);
+        guidedPhaseBar.innerHTML = "";
+
+        const track = document.createElement("div");
+        track.className = "phase-bar-track";
+
+        GUIDED_STAGES.forEach((stage, i) => {
+            const step = document.createElement("div");
+            step.className = "phase-step";
+
+            if (i < currentIdx) step.classList.add("done");
+            else if (i === currentIdx) step.classList.add("active");
+            else step.classList.add("pending");
+
+            const dot = document.createElement("div");
+            dot.className = "phase-dot-btn";
+            dot.textContent = i < currentIdx ? "✓" : "";
+
+            const label = document.createElement("span");
+            label.className = "phase-label";
+            label.textContent = STAGE_LABELS[stage] || stage;
+
+            step.appendChild(dot);
+            step.appendChild(label);
+            track.appendChild(step);
+        });
+
+        guidedPhaseBar.appendChild(track);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PANEL DE AYUDA CONTEXTUAL POR FASE
+    // ═══════════════════════════════════════════════════════════════════
+
+    function renderPhaseHint(stage) {
+        const hint = PHASE_HINTS[stage];
+        if (!hint) return;
+
+        phaseHintName.textContent = hint.name;
+        phaseHintDesc.textContent = hint.desc;
+        phaseHintReq.textContent = hint.req;
+
+        // Render clickable examples
+        phaseExamplesList.innerHTML = "";
+        hint.examples.forEach(example => {
+            const btn = document.createElement("button");
+            btn.className = "phase-example-btn";
+            btn.textContent = example;
+            btn.addEventListener("click", () => {
+                oracleInstruction.value = example;
+                oracleInstruction.focus();
+                showToast("Instrucción insertada — pulsa Ctrl+Enter para consultar.");
+            });
+            phaseExamplesList.appendChild(btn);
+        });
+
+        phaseHintPanel.classList.remove("hidden");
+    }
+
+    function hidePhaseHint() {
+        phaseHintPanel.classList.add("hidden");
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // GUIDED UI
+    // ═══════════════════════════════════════════════════════════════════
+
+    function updateGuidedUI() {
+        if (activeProjectId && currentMode === "guia") {
+            guidedProgress.classList.remove("hidden");
+            renderGuidedProgressBar(currentGuidedStage);
+            renderPhaseHint(currentGuidedStage);
+
+            const isCompleted = currentGuidedStage === "completado";
+            guidedNextBtn.classList.toggle("hidden", isCompleted);
+            guidedNextBtn.disabled = !canAdvanceStage || isCompleted;
+
+            // Update tooltip visibility based on can_advance
+            if (guidedNextTooltip) {
+                guidedNextTooltip.style.display = canAdvanceStage ? "none" : "";
+            }
+
+            const stageLabel = STAGE_LABELS[currentGuidedStage] || currentGuidedStage;
+            mainEditor.placeholder = `Modo Guía — ${hint_for(currentGuidedStage)}\n\nRedacta aquí tu borrador para esta fase.`;
+        } else {
+            guidedProgress.classList.add("hidden");
+            hidePhaseHint();
+            mainEditor.placeholder = activeProjectId
+                ? "Empieza con tu tesis o pega un borrador. Después usa Ctrl+Enter para consultarlo con el Oráculo."
+                : "Plasma tu idea, premisa o borrador aquí. Selecciona o crea un proyecto para mantener tus reflexiones persistentes...";
+        }
+    }
+
+    function hint_for(stage) {
+        const h = PHASE_HINTS[stage];
+        return h ? h.name : stage;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // TEMPLATES
+    // ═══════════════════════════════════════════════════════════════════
+
     function getTemplateSetup(templateId, title, goal) {
         const goalLine = goal ? `\nObjetivo del proyecto: ${goal}\n` : "";
         if (templateId === "exploracion_socratica") {
@@ -173,6 +463,10 @@ document.addEventListener("DOMContentLoaded", () => {
             instruction: ""
         };
     }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MODAL DE NUEVO PROYECTO
+    // ═══════════════════════════════════════════════════════════════════
 
     function openNewProjectModal() {
         lastFocusedElement = document.activeElement;
@@ -256,21 +550,9 @@ document.addEventListener("DOMContentLoaded", () => {
         updateGuidedUI();
     }
 
-    function updateGuidedUI() {
-        if (activeProjectId && currentMode === "guia") {
-            guidedProgress.classList.remove("hidden");
-            const stageLabel = (currentGuidedStage.charAt(0).toUpperCase() + currentGuidedStage.slice(1)).replace("Contraargumento", "Contra-Arg");
-            guidedStageLabel.textContent = "Fase: " + stageLabel;
-            guidedNextBtn.classList.toggle("hidden", currentGuidedStage === "completado");
-            guidedNextBtn.disabled = !canAdvanceStage || currentGuidedStage === "completado";
-            mainEditor.placeholder = `Modo Guía (${stageLabel})...\nRedacta aquí tu borrador para esta fase.`;
-        } else {
-            guidedProgress.classList.add("hidden");
-            mainEditor.placeholder = activeProjectId
-                ? "Empieza con tu tesis o pega un borrador. Después usa Ctrl+Enter para consultarlo con el Oráculo."
-                : "Plasma tu idea, premisa o borrador aquí. Selecciona o crea un proyecto para mantener tus reflexiones persistentes...";
-        }
-    }
+    // ═══════════════════════════════════════════════════════════════════
+    // PROYECTOS
+    // ═══════════════════════════════════════════════════════════════════
 
     async function loadProjects() {
         try {
@@ -318,10 +600,20 @@ document.addEventListener("DOMContentLoaded", () => {
         data.items.forEach((item) => {
             const el = document.createElement("div");
             el.className = "history-item";
-            el.textContent = `${item.mode.toUpperCase()} · ${new Date(item.timestamp).toLocaleString()}`;
+            
+            const timeStr = new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            el.innerHTML = `<span>🕒 ${item.mode.charAt(0).toUpperCase() + item.mode.slice(1)}</span> <span style="margin-left: auto; font-size: 0.75rem; opacity: 0.7;">${timeStr}</span>`;
+            
             el.onclick = () => {
-                renderMarkdownSafe(item.ai_output);
-                if (item.mode !== "guia") setModeVisual(item.mode);
+                if (el.classList.contains("viewing")) {
+                    el.classList.remove("viewing");
+                    renderEmptyResult("Historial cerrado. Escribe tu instrucción y consulta al Oráculo para continuar.");
+                } else {
+                    document.querySelectorAll(".history-item").forEach(i => i.classList.remove("viewing"));
+                    el.classList.add("viewing");
+                    renderMarkdownSafe(item.ai_output);
+                    if (item.mode !== "guia") setModeVisual(item.mode);
+                }
             };
             historyList.appendChild(el);
         });
@@ -376,6 +668,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // GUARDAR DOCUMENTO
+    // ═══════════════════════════════════════════════════════════════════
+
     async function saveActiveDocument() {
         if (!activeProjectId) return;
         saveStatus.textContent = "Guardando...";
@@ -394,6 +690,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // PROCESAR — ORÁCULO
+    // ═══════════════════════════════════════════════════════════════════
+
     async function processText() {
         const draftText = mainEditor.value.trim();
         const instructionText = oracleInstruction.value.trim();
@@ -402,7 +702,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         if (currentMode === "guia" && !activeProjectId) {
-            showToast("Debes seleccionar un proyecto para usar modo guía.", "error");
+            showGuidedNoProjectModal();
             return;
         }
 
@@ -445,6 +745,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 accumulatedContent = data.accumulated_content;
                 canAdvanceStage = Boolean(data.can_advance);
                 updateGuidedUI();
+                
+                if (canAdvanceStage && currentGuidedStage !== "completado") {
+                    const inlineBtn = document.createElement("button");
+                    inlineBtn.className = "inline-advance-btn";
+                    inlineBtn.innerHTML = "🌟 ¡Fase superada! Avanzar a la siguiente fase ➔";
+                    inlineBtn.onclick = () => guidedNextBtn.click();
+                    resultsContent.appendChild(inlineBtn);
+                }
             }
             if (activeProjectId) await loadInteractionHistory(true);
         } catch (error) {
@@ -457,8 +765,22 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════════════════════════════════
+
     ensureClientIdentity();
     loadProjects();
+
+    // Mostrar tutorial solo la primera vez
+    if (!localStorage.getItem(TUTORIAL_SEEN_KEY)) {
+        showWelcomeTutorial();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // EVENT LISTENERS
+    // ═══════════════════════════════════════════════════════════════════
+
     fontSizeControl.addEventListener("input", () => {
         mainEditor.style.fontSize = `${fontSizeControl.value}px`;
     });
@@ -473,7 +795,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.addEventListener("click", () => {
             const selectedMode = btn.getAttribute("data-mode");
             if (selectedMode === "guia" && !activeProjectId) {
-                showToast("Crea o selecciona un proyecto para Modo Guía.", "error");
+                showGuidedNoProjectModal();
                 return;
             }
             setModeVisual(selectedMode);
@@ -482,7 +804,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     guidedNextBtn.addEventListener("click", async () => {
         if (!canAdvanceStage) {
-            showToast("Primero procesa esta fase con suficiente contenido.", "error");
+            showToast("Primero consulta al Oráculo con suficiente contenido en el lienzo.", "error");
             return;
         }
         const idx = GUIDED_STAGES.indexOf(currentGuidedStage);
@@ -492,7 +814,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (currentGuidedStage === "completado") {
                 mainEditor.value = accumulatedContent;
                 await saveActiveDocument();
-                showToast("Ensayo completado y guardado.");
+                showToast("¡Ensayo completado y guardado! 🎉");
             } else {
                 mainEditor.value = "";
             }

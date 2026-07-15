@@ -20,7 +20,10 @@
             <div class="projects-panel">
                 <div class="projects-header">
                     <h3>PROYECTOS</h3>
-                    <button id="new-project-btn" class="icon-btn" title="Nuevo Proyecto">+</button>
+                    <button id="new-project-btn" class="new-project-btn" title="Nuevo proyecto">
+                        <span aria-hidden="true">＋</span>
+                        Nuevo proyecto
+                    </button>
                 </div>
                 <div class="projects-list" id="projects-list">
                     <!-- Lista de proyectos injectada JS -->
@@ -48,7 +51,19 @@
                 </div>
             </div>
 
-            <button id="process-btn" class="process-btn">Consultar Oráculo ➔</button>
+            <!-- Panel de ayuda contextual por fase (solo Modo Guía) -->
+            <div id="phase-hint-panel" class="hidden">
+                <span class="phase-hint-title">Fase actual</span>
+                <span id="phase-hint-name" class="phase-hint-name"></span>
+                <p id="phase-hint-desc" class="phase-hint-desc"></p>
+                <p id="phase-hint-req" class="phase-hint-requirement"></p>
+                <span class="phase-examples-label">Prueba con:</span>
+                <div id="phase-examples-list" class="phase-examples-list"></div>
+            </div>
+
+
+
+            <button id="process-btn" class="process-btn">Consultar Oráculo ➔<span class="shortcut-badge">Ctrl+Enter</span></button>
             <div id="loading" class="hidden"><div class="spinner"></div> Pensando...</div>
         </aside>
 
@@ -57,24 +72,48 @@
             <div class="editor-header">
                 <span id="current-project-title">Documento efímero (Sin proyecto)</span>
                 
+                <!-- Barra de progreso de fases del Modo Guía -->
                 <div id="guided-progress" class="hidden">
-                    <span id="guided-stage-label" class="stage-label">Fase: Idea</span>
-                    <button id="guided-next-btn" class="save-btn" style="margin-right: 1rem;">Avanzar Fase ➡</button>
+                    <div id="guided-phase-bar"></div>
+                    <div class="tooltip-wrapper">
+                        <button id="guided-next-btn" class="save-btn" style="margin-right: 1rem;">Avanzar Fase ➡</button>
+                        <span class="tooltip-text" id="guided-next-tooltip">Escribe al menos 80 caracteres en el lienzo y consulta al Oráculo primero.</span>
+                    </div>
                 </div>
 
                 <div class="header-actions">
-                    <label class="editor-control-label" for="font-size-control">Texto</label>
-                    <input id="font-size-control" type="range" min="18" max="28" value="22" />
-                    <label class="editor-control-label" for="line-height-control">Interlineado</label>
-                    <input id="line-height-control" type="range" min="1.4" max="2.2" step="0.1" value="1.8" />
                     <span id="save-status"></span>
                     <button id="save-doc-btn" class="save-btn hidden">💾 Guardar Manual</button>
+                    
+                    <div class="settings-dropdown">
+                        <button id="settings-btn" class="help-btn" title="Ajustes de vista">Aa</button>
+                        <div id="settings-menu" class="settings-menu hidden">
+                            <div class="settings-group">
+                                <label class="editor-control-label" for="font-size-control">Tamaño del texto</label>
+                                <input id="font-size-control" type="range" min="18" max="28" value="22" />
+                            </div>
+                            <div class="settings-group">
+                                <label class="editor-control-label" for="line-height-control">Interlineado</label>
+                                <input id="line-height-control" type="range" min="1.4" max="2.2" step="0.1" value="1.8" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="help-btn" class="help-btn" title="Abrir tutorial">?</button>
                 </div>
             </div>
             <div class="oracle-input-wrap">
                 <label for="oracle-instruction">Instrucción para el Oráculo</label>
                 <input id="oracle-instruction" type="text" placeholder="Ej. Critica la estructura argumental y sugiere mejoras concretas." />
             </div>
+            <section id="project-onboarding" class="project-onboarding hidden">
+                <p id="project-onboarding-text">Proyecto creado. Elige un primer paso:</p>
+                <div class="project-onboarding-actions">
+                    <button id="onboarding-write-thesis" class="save-btn">Escribir tesis inicial</button>
+                    <button id="onboarding-guided-mode" class="save-btn">Iniciar modo guía</button>
+                    <button id="onboarding-paste-draft" class="save-btn">Pegar borrador para mejora</button>
+                </div>
+            </section>
             <textarea id="main-editor" placeholder="Plasma tu idea, premisa o borrador aquí. Selecciona o crea un proyecto para mantener tus reflexiones persistentes..."></textarea>
         </main>
 
@@ -96,18 +135,119 @@
     
     <!-- Modals -->
     <div id="modal-overlay" class="modal-overlay hidden"></div>
-    <div id="new-project-modal" class="modal hidden">
+    <div
+        id="new-project-modal"
+        class="modal hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-project-modal-title"
+        aria-describedby="new-project-modal-description"
+    >
         <div class="modal-content">
-            <h3>Nuevo Proyecto Filosófico</h3>
-            <p>Ingresa el título para tu nueva reflexión.</p>
-            <input type="text" id="new-project-title" placeholder="Ej. La dicotomía del control..." autocomplete="off">
+            <h3 id="new-project-modal-title">Crear proyecto</h3>
+            <p id="new-project-modal-description">Guarda contexto, historial y progreso de tu ensayo desde el inicio.</p>
+            <label for="new-project-title">Título del proyecto</label>
+            <input type="text" id="new-project-title" placeholder="Ej. La dicotomía del control..." autocomplete="off" maxlength="120">
+            <div class="field-meta">
+                <span>Obligatorio</span>
+                <span id="new-project-counter">0/120</span>
+            </div>
+            <label for="new-project-goal">Objetivo (opcional)</label>
+            <input type="text" id="new-project-goal" placeholder="Ej. Construir un ensayo con tesis y contraargumento sólido." maxlength="200" autocomplete="off">
+            <label for="new-project-initial-mode">Modo inicial</label>
+            <select id="new-project-initial-mode">
+                <option value="ensayo">Ensayo</option>
+                <option value="guia">Modo Guía</option>
+                <option value="mejora">Mejora de Texto</option>
+                <option value="critica">Crítica</option>
+                <option value="estilo">Estilo</option>
+            </select>
+            <label for="new-project-template">Plantilla inicial</label>
+            <select id="new-project-template">
+                <option value="ensayo_argumentativo">Ensayo argumentativo</option>
+                <option value="exploracion_socratica">Exploración socrática</option>
+                <option value="critica_texto">Crítica de texto</option>
+                <option value="en_blanco">Proyecto en blanco</option>
+            </select>
+            <div id="new-project-error" class="input-error hidden" aria-live="polite"></div>
             <div class="modal-actions">
                 <button id="modal-cancel-btn" class="modal-btn cancel">Cancelar</button>
-                <button id="modal-create-btn" class="modal-btn create">Crear</button>
+                <button id="modal-create-btn" class="modal-btn create" disabled>Crear</button>
             </div>
         </div>
     </div>
     <div id="toast-container" class="toast-container"></div>
+
+    <!-- Modal: Modo Guía sin proyecto activo -->
+    <div id="guided-no-project-overlay" class="modal-overlay hidden"></div>
+    <div id="guided-no-project-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="gnp-title">
+        <div class="modal-content gnp-modal-content">
+            <div class="gnp-icon">🌟</div>
+            <h3 id="gnp-title">El Modo Guía necesita un proyecto</h3>
+            <p class="gnp-desc">El Modo Guía guarda tu progreso fase a fase, por lo que requiere un proyecto activo. Crea uno ahora o selecciona uno existente de la lista de proyectos.</p>
+            <div class="modal-actions gnp-actions">
+                <button id="gnp-cancel-btn" class="modal-btn cancel">Ahora no</button>
+                <button id="gnp-create-btn" class="modal-btn create">＋ Crear proyecto</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Tutorial de bienvenida -->
+    <div id="tutorial-overlay" class="tutorial-overlay hidden">
+        <div class="tutorial-modal">
+            <!-- Slide 1: Qué es Sisyphus -->
+            <div class="tutorial-slide active" data-slide="0">
+                <span class="tutorial-slide-icon">🪨</span>
+                <h2>Bienvenido a Sysiphus</h2>
+                <p>Una herramienta para pensar mejor y escribir ensayos más profundos, con un asistente de IA que se adapta a tu forma de trabajar.</p>
+                <ul>
+                    <li><span class="li-icon">📁</span><div>Crea <strong>proyectos</strong> para organizar tus ensayos y mantener contexto e historial entre sesiones.</div></li>
+                    <li><span class="li-icon">✍️</span><div>Escribe en el <strong>lienzo central</strong> — tu borrador, tesis o ideas.</div></li>
+                    <li><span class="li-icon">⚡</span><div>El <strong>Oráculo</strong> (panel derecho) analiza tu texto y responde según el modo que elijas.</div></li>
+                </ul>
+            </div>
+            <!-- Slide 2: Los modos -->
+            <div class="tutorial-slide" data-slide="1">
+                <span class="tutorial-slide-icon">🎛️</span>
+                <h2>Elige cómo quieres que te ayude</h2>
+                <p>Cada modo le da al Oráculo un rol diferente. Selecciona el que mejor se adapte a tu momento de escritura.</p>
+                <ul>
+                    <li><span class="li-icon">📝</span><div><strong>Ensayo</strong> — desarrolla argumentos y estructura desde cero.</div></li>
+                    <li><span class="li-icon">💫</span><div><strong>Mejora</strong> — pega un borrador y recibe sugerencias de claridad y redacción.</div></li>
+                    <li><span class="li-icon">🔍</span><div><strong>Crítica</strong> — detecta debilidades y falacias en tu argumento.</div></li>
+                    <li><span class="li-icon">🎭</span><div><strong>Estilo</strong> — reescribe tu texto imitando un autor o corriente filosófica.</div></li>
+                </ul>
+            </div>
+            <!-- Slide 3: Modo Guía -->
+            <div class="tutorial-slide" data-slide="2">
+                <span class="tutorial-slide-icon">🌟</span>
+                <h2>Modo Guía: escribe paso a paso</h2>
+                <p>Si no sabes por dónde empezar, el Modo Guía te lleva fase a fase hasta tener un ensayo completo.</p>
+                <div class="tutorial-highlight">
+                    <p>💡 <strong>Cómo funciona:</strong></p>
+                    <p>Idea → Estructura → Introducción → Desarrollo → Contraargumento → Conclusión</p>
+                </div>
+                <ul>
+                    <li><span class="li-icon">1️⃣</span><div>Crea un <strong>proyecto</strong> y activa <strong>🌟 Modo Guía</strong> en el panel izquierdo.</div></li>
+                    <li><span class="li-icon">2️⃣</span><div>Escribe tu idea en el lienzo, añade una instrucción y pulsa <strong>Ctrl+Enter</strong>.</div></li>
+                    <li><span class="li-icon">3️⃣</span><div>Cuando el Oráculo responda, el botón <strong>"Avanzar Fase"</strong> se habilitará para pasar a la siguiente etapa.</div></li>
+                </ul>
+            </div>
+            <!-- Footer -->
+            <div class="tutorial-footer">
+                <div class="tutorial-dots">
+                    <div class="tutorial-dot active" data-dot="0"></div>
+                    <div class="tutorial-dot" data-dot="1"></div>
+                    <div class="tutorial-dot" data-dot="2"></div>
+                </div>
+                <div class="tutorial-actions">
+                    <button class="tutorial-btn-skip" id="tutorial-skip-btn">Saltar</button>
+                    <button class="tutorial-btn-next" id="tutorial-next-btn">Siguiente →</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Librería externa para parsear MD a HTML rapido (marckdown-it) -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>

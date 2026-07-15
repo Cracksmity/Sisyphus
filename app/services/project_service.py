@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 from app import models
 
 
@@ -18,8 +19,9 @@ def create_project(db: Session, title: str, owner_id: str) -> models.Project:
     db_project = models.Project(title=title, owner_id=owner_id)
     db.add(db_project)
     db.flush()
-    db.add(models.Document(project_id=db_project.id, content=""))
-    db.add(models.EssayMemory(project_id=db_project.id, thesis="", memory_notes="", chunk_count=0, document_hash=""))
+    now = datetime.now(timezone.utc)
+    db.add(models.Document(project_id=db_project.id, content="", updated_at=now))
+    db.add(models.EssayMemory(project_id=db_project.id, thesis="", memory_notes="", chunk_count=0, document_hash="", updated_at=now))
     db.commit()
     db.refresh(db_project)
     return db_project
